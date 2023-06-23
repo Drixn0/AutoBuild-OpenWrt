@@ -143,6 +143,15 @@ jobs:
         echo "列出空间占用前10的目录或文件："
         sudo du -h --max-depth=1 /workdir/openwrt |sort -nr | head -10        
 
+    - name: 发布固件到 Releases
+      uses: softprops/action-gh-release@v1
+      if: steps.tag.outputs.status == 'success' && !cancelled()
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag_name: ${{ steps.tag.outputs.release_tag }}
+        body_path: release.txt
+        files: ${{ env.FIRMWARE }}/*
+
     - name: 发布固件到 Artifacts
       uses: ncipollo/release-action@v1
       with:
@@ -153,15 +162,6 @@ jobs:
         body: |
           自用固件，插件较少！
           如有其他需求，建议下载全插件版本固件！
-
-    - name: 发布固件到 Releases
-      uses: softprops/action-gh-release@v1
-      if: steps.tag.outputs.status == 'success' && !cancelled()
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
-        files: ${{ env.FIRMWARE }}/*
 
     - name: 发布固件到奶牛快传
       id: cowtransfer
