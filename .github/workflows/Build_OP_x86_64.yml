@@ -50,7 +50,7 @@ jobs:
       uses: actions/checkout@master
     
     - name: Bark 推送
-      run: curl https://push.drixn.com/${{ secrets.SERVERCHAN }}.send?text=${{ env.FILE_NAME }}开始编译
+      run: curl https://push.drixn.com/${{ secrets.DEVICE_KEY }}.send?text=${{ env.FILE_NAME }}开始编译
 
     - name: 检查服务器配置
       run: |
