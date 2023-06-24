@@ -37,9 +37,10 @@ env:
   UPLOAD_WETRANSFER: false
   UPLOAD_BIN_DIR: false
   UPLOAD_FIRMWARE: false
+  BARK: true
   TZ: Asia/Shanghai
-  FILE_NAME: x86_64
-  PRODUCT_NAME: x86_64
+  FILE_NAME: OpenWRT_x86_64
+  PRODUCT_NAME: OpenWRT_x86_64
 
 jobs:
   build:
@@ -49,8 +50,21 @@ jobs:
     - name: 检查项目分支
       uses: actions/checkout@master
     
-    - name: Bark 推送
-      run: curl https://push.drixn.com/${{ secrets.DEVICE_KEY }}.send?text=${{ env.FILE_NAME }}开始编译
+    - name: 环境初始化 Bark 推送
+      uses: shink/bark-action@v2
+      if: env.BARK == 'true' && !cancelled()
+      with:
+        key: ${{ secrets.BARK_KEY }}       # Your secret key, it is required
+        host: ${{ secrets.BARK_HOST }}     # Your Bark host, the default is 'https://api.day.app'
+        title: OpenWRT x86_64 位固件编译通知
+        body: 楠神您好，您的【AutoBuild-OpenWrt】仓库的 OpenWRT x86_64 位固件编译正在初始化编译环境和配置，即将开始编译！
+        sound: telegraph
+        icon: https://cdn.drixn.com/img/avatar.png
+        group: OpenWRT
+        isArchive: 1
+        url: ${{ secrets.BARK_URL }}
+        # automaticallyCopy: 1
+        # copy: Content copied to clipboard
 
     - name: 检查服务器配置
       run: |
@@ -133,9 +147,22 @@ jobs:
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
-    # - name: 补丁
-    #   run: cp -rf $GITHUB_WORKSPACE/x86_64/5_15_patches/* openwrt/
-
+    - name: 开始编译 Bark 推送
+      uses: shink/bark-action@v2
+      if: env.BARK == 'true' && steps.package.outputs.status == 'success' && !cancelled()
+      with:
+        key: ${{ secrets.BARK_KEY }}       # Your secret key, it is required
+        host: ${{ secrets.BARK_HOST }}     # Your Bark host, the default is 'https://api.day.app'
+        title: OpenWRT x86_64 位固件编译通知
+        body: 楠神您好，您的【AutoBuild-OpenWrt】仓库的 OpenWRT x86_64 位固件编译环境初始化完成，依赖下载完成，现在开始编译！
+        sound: telegraph
+        icon: https://cdn.drixn.com/img/avatar.png
+        group: OpenWRT
+        isArchive: 1
+        url: ${{ secrets.BARK_URL }}
+        # automaticallyCopy: 1
+        # copy: Content copied to clipboard
+    
     - name: 编译固件
       id: compile
       run: |
@@ -266,4 +293,21 @@ jobs:
         #keep_latest: ${{ github.event.inputs.rele }}
         delete_tags: true
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 编译成功 Bark 推送
+      uses: shink/bark-action@v2
+      if: env.BARK == 'true' && steps.release.outputs.status == 'success' && !cancelled()
+      with:
+        key: ${{ secrets.BARK_KEY }}       # Your secret key, it is required
+        host: ${{ secrets.BARK_HOST }}     # Your Bark host, the default is 'https://api.day.app'
+        title: OpenWRT x86_64 位固件编译通知
+        body: 楠神您好，您【AutoBuild-OpenWrt】仓库的 OpenWRT x86_64 位固件编译成功了！
+        sound: telegraph
+        icon: https://cdn.drixn.com/img/avatar.png
+        group: OpenWRT
+        isArchive: 1
+        url: ${{ secrets.BARK_URL }}
+        # automaticallyCopy: 1
+        # copy: Content copied to clipboard
+    
