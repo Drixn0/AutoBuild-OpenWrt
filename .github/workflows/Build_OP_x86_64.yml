@@ -151,16 +151,16 @@ jobs:
         body_path: release.txt
         files: ${{ env.FIRMWARE }}/*
 
-    - name: 发布固件到 Artifacts
-      uses: ncipollo/release-action@v1
-      with:
-        tag: openwrt_x86_64_${{ env.PACKAGED_OUTPUTDATE }}
-        artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
-        allowUpdates: true
-        token: ${{ secrets.GITHUB_TOKEN }}
-        body: |
-          自用固件，插件较少！
-          如有其他需求，建议下载全插件版本固件！
+    # - name: 发布固件到 Artifacts
+    #   uses: ncipollo/release-action@v1
+    #   with:
+    #     tag: openwrt_x86_64_${{ env.PACKAGED_OUTPUTDATE }}
+    #     artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
+    #     allowUpdates: true
+    #     token: ${{ secrets.GITHUB_TOKEN }}
+    #     body: |
+    #       自用固件，插件较少！
+    #       如有其他需求，建议下载全插件版本固件！
 
     - name: 发布固件到奶牛快传
       id: cowtransfer
