@@ -49,13 +49,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@master
     
-    # - name: Bark 通知
-    #   run: |
-    #     MSG="
-    #     ${{ env.PRODUCT_NAME }} 开始编译完成
-    #     "  
-    #     curl -X "POST" "https://push.drixn.com/push" \
-    #     -H 'Content-Type: application/json; charset=utf-8' \
+    - name: Server酱 推送
+     run: curl https://sc.ftqq.com/${{ secrets.SERVERCHAN }}.send?text=${{ env.FILE_NAME }}开始编译
 
     - name: 检查服务器配置
       run: |
