@@ -5,7 +5,7 @@
 # Youtube Channel: https://goo.gl/fvkdwm 
 #=================================================
 
-name: x86固件编译
+name: x86_64位固件编译
 
 # Add a button to trigger the workflow
 on: 
