@@ -260,7 +260,6 @@ jobs:
     - name: 发布固件到 Releases
       id: release
       uses: ncipollo/release-action@v1
-      if: steps.tag.outputs.status == 'success' && !cancelled()
       with:
         name: R${{ env.DATE }} for ${{ env.PRODUCT_NAME }}
         allowUpdates: true
