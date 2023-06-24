@@ -49,8 +49,8 @@ jobs:
     - name: Checkout
       uses: actions/checkout@master
     
-    - name: Server酱 推送
-      run: curl https://sctapi.ftqq.com/${{ secrets.SERVERCHAN }}.send?text=${{ env.FILE_NAME }}开始编译
+    - name: Bark 推送
+      run: curl https://push.drixn.com/${{ secrets.SERVERCHAN }}.send?text=${{ env.FILE_NAME }}开始编译
 
     - name: 检查服务器配置
       run: |
