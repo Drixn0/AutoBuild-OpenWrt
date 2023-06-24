@@ -34,6 +34,9 @@ git clone https://github.com/kenzok8/small-package package/small-package
 git clone https://github.com/jerrykuku/luci-app-argon-config.git package/luci-app-argon-config
 git clone -b 18.06 https://github.com/jerrykuku/luci-theme-argon.git package/luci-theme-argon
 
+# replace banner
+cp -f $GITHUB_WORKSPACE/diy/banner package/base-files/files/etc/banner
+
 # 删除重复包
 rm -rf feeds/luci/themes/luci-theme-argon
 rm -rf package/small-package/luci-app-openvpn-server
