@@ -12,6 +12,15 @@ on:
   repository_dispatch:
   workflow_dispatch:
 
+  # release:
+  #   types: published    
+
+  # push:
+  #   branches:
+  #     - master
+  #   paths:
+  #     - 'config/x86_64/x86_64.config'
+  
   # schedule:
   #   - cron: 0 2 * * 2
 
@@ -19,12 +28,18 @@ env:
   REPO_URL: https://github.com/coolsnowwolf/lede
   REPO_BRANCH: master
   FEEDS_CONF: feeds.conf.default
-  CONFIG_FILE: x86_64.config
+  CONFIG_FILE: config/x86_64/x86_64.config
   DIY_P1_SH: diy-part1.sh
   DIY_P2_SH: diy-part2.sh
+  SSH_ACTIONS: false
   UPLOAD_RELEASE: true
   UPLOAD_COWTRANSFER: false
+  UPLOAD_WETRANSFER: false
+  UPLOAD_BIN_DIR: false
+  UPLOAD_FIRMWARE: false
   TZ: Asia/Shanghai
+  FILE_NAME: x86_64
+  PRODUCT_NAME: x86_64
 
 jobs:
   build:
@@ -33,6 +48,14 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@master
+    
+    # - name: Bark 通知
+    #   run: |
+    #     MSG="
+    #     ${{ env.PRODUCT_NAME }} 开始编译完成
+    #     "  
+    #     curl -X "POST" "https://push.drixn.com/push" \
+    #     -H 'Content-Type: application/json; charset=utf-8' \
 
     - name: 检查服务器配置
       run: |
@@ -73,8 +96,8 @@ jobs:
         sudo chown $USER:$GROUPS /workdir
         # 清理多余文件，腾出磁盘空间
         docker rmi $(docker images -q)
-        # sudo -E apt-get remove -y --purge azure-cli ghc zulu* llvm* firefox google* dotnet* powershell mysql* php* android*
-        # sudo rm -rf /etc/mysql /etc/php /swapfile
+#       sudo -E apt-get remove -y --purge azure-cli ghc zulu* llvm* firefox google* dotnet* powershell mysql* php* android*
+#       sudo rm -rf /etc/mysql /etc/php /swapfile
 
     - name: 克隆源码
       working-directory: /workdir
@@ -82,7 +105,14 @@ jobs:
         df -hT $PWD
         git clone --depth 1 $REPO_URL -b $REPO_BRANCH openwrt
         ln -sf /workdir/openwrt $GITHUB_WORKSPACE/openwrt
-  
+        cd openwrt
+        useVersionInfo=$(git show -s --date=short --format="Author: %an<br/>date: %cd<br/>commit: %s<br/>commit hash: %H")
+        echo "useVersionInfo=$useVersionInfo" >> $GITHUB_ENV
+        echo "DATE=$(date "+%Y-%m-%d %H:%M:%S")" >> $GITHUB_ENV
+        echo "DATE1=$(date "+%Y-%m-%d")" >> $GITHUB_ENV
+#        echo "::set-env name=useVersionInfo::$useVersionInfo"
+#        echo "::set-env name=DATE::$(date "+%Y-%m-%d %H:%M:%S")"
+
     - name: 加载自定义feeds
       run: |
         [ -e $FEEDS_CONF ] && mv $FEEDS_CONF openwrt/feeds.conf.default
@@ -104,7 +134,12 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
         
-    - name: 下载软件包
+
+    # - name: SSH connection to Actions
+    #   uses: P3TERX/debugger-action@master
+    #   if: env.SSH_ACTIONS == 'true' || contains(github.event.action, 'ssh')        
+
+    - name: 下载 dl 库
       id: package
       run: |
         cd openwrt
@@ -113,8 +148,17 @@ jobs:
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
+    # - name: 补丁
+    #   run: cp -rf $GITHUB_WORKSPACE/x86_64/5_15_patches/* openwrt/
+
     - name: 编译固件
-      run: |
+      id: compile
+        run: |
+        MSG="
+        编译时间：${{ env.DATE }}
+        OpenWrt 更新信息：${{ env.useVersionInfo }}
+        ${{ env.PRODUCT_NAME }} 编译完成
+        "
         cd openwrt
         echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 || make -j1 V=s
@@ -122,6 +166,8 @@ jobs:
         grep '^CONFIG_TARGET.*DEVICE.*=y' .config | sed -r 's/.*DEVICE_(.*)=y/\1/' > DEVICE_NAME
         [ -s DEVICE_NAME ] && echo "DEVICE_NAME=_$(cat DEVICE_NAME)" >> $GITHUB_ENV
         echo "FILE_DATE=_$(date +"%Y%m%d%H%M")" >> $GITHUB_ENV
+#        [ -s DEVICE_NAME ] && echo "::set-env name=DEVICE_NAME::_$(cat DEVICE_NAME)"
+#        echo "::set-env name=FILE_DATE::_$(date +"%Y%m%d%H%M")"
 
     - name: 清理磁盘空间
       if: (!cancelled())
@@ -142,25 +188,34 @@ jobs:
         echo "列出空间占用前10的目录或文件："
         sudo du -h --max-depth=1 /workdir/openwrt |sort -nr | head -10        
 
-    - name: 发布固件到 Releases
-      uses: softprops/action-gh-release@v1
-      if: steps.tag.outputs.status == 'success' && !cancelled()
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
-        files: ${{ env.FIRMWARE }}/*
 
-    # - name: 发布固件到 Artifacts
-    #   uses: ncipollo/release-action@v1
-    #   with:
-    #     tag: openwrt_x86_64_${{ env.PACKAGED_OUTPUTDATE }}
-    #     artifacts: ${{ env.PACKAGED_OUTPUTPATH }}/*
-    #     allowUpdates: true
-    #     token: ${{ secrets.GITHUB_TOKEN }}
-    #     body: |
-    #       自用固件，插件较少！
-    #       如有其他需求，建议下载全插件版本固件！
+    - name: Upload bin directory
+      uses: actions/upload-artifact@main
+      if: steps.compile.outputs.status == 'success' && env.UPLOAD_BIN_DIR == 'true'
+      with:
+        name: OpenWrt_bin${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: openwrt/bin
+
+    - name: Organize files
+      id: organize
+      if: steps.compile.outputs.status == 'success' && !cancelled()
+      run: |
+        cp openwrt/bin/packages/x86_64/packages/open-vm*.ipk openwrt/bin/targets/*/*
+        tar -zcvf AllPackages.tar.gz openwrt/bin/packages
+        mv AllPackages.tar.gz openwrt/bin/targets/*/*
+        cd openwrt/bin/targets/*/*
+        tar -zcvf Packages.tar.gz packages
+        rm -rf packages config.buildinfo feeds.buildinfo sha256sums version.buildinfo *.manifest Packages.tar.gz
+        echo "FIRMWARE=$PWD" >> $GITHUB_ENV
+        echo "::set-output name=status::success"
+  #        echo "::set-env name=FIRMWARE::$PWD"
+
+    - name: Upload firmware directory
+      uses: actions/upload-artifact@master
+      if: env.UPLOAD_FIRMWARE == 'true' && steps.organize.outputs.status == 'success' && !cancelled()
+      with:
+        name: OpenWrt_firmware${{ env.DEVICE_NAME }}${{ env.FILE_DATE }}
+        path: ${{ env.FIRMWARE }}  
 
     - name: 发布固件到奶牛快传
       id: cowtransfer
@@ -170,6 +225,46 @@ jobs:
         ./transfer cow --block 2621440 -s -p 64 --no-progress ${FIRMWARE} 2>&1 | tee cowtransfer.log
         echo "::warning file=cowtransfer.com::$(cat cowtransfer.log | grep https)"
         echo "{url}={$(cat cowtransfer.log | grep https | cut -f3 -d" ")}" >> $GITHUB_OUTPUT
+
+    - name: 发布固件到 WeTransfer
+      id: wetransfer
+      if: steps.organize.outputs.status == 'success' && env.UPLOAD_WETRANSFER == 'true' && !cancelled()
+      run: |
+        curl -fsSL git.io/file-transfer | sh
+        ./transfer wet -s -p 16 --no-progress ${FIRMWARE} 2>&1 | tee wetransfer.log
+        echo "::warning file=wetransfer.com::$(cat wetransfer.log | grep https)"
+        echo "{url}={$(cat wetransfer.log | grep https | cut -f3 -d" ")}" >> $GITHUB_OUTPUT
+
+        - name: Generate release tag
+        id: tag
+        if: env.UPLOAD_RELEASE == 'true' && !cancelled()
+        run: |
+          echo "{release_tag}={$(date +"%Y.%m.%d-%H%M")}" >> $GITHUB_OUTPUT
+          touch release.txt
+          [ $UPLOAD_COWTRANSFER = true ] && echo "🔗 [Cowtransfer](${{ steps.cowtransfer.outputs.url }})" >> release.txt
+          [ $UPLOAD_WETRANSFER = true ] && echo "🔗 [WeTransfer](${{ steps.wetransfer.outputs.url }})" >> release.txt
+          echo "{status}={success}" >> $GITHUB_OUTPUT
+  
+    - name: 发布固件到 Releases
+      id: release
+      uses: ncipollo/release-action@v1
+      with:
+        name: R${{ env.DATE }} for ${{ env.PRODUCT_NAME }}
+        allowUpdates: true
+        tag: ${{ env.FILE_NAME }}
+        commit: master
+        token: ${{ secrets.GITHUB_TOKEN }}
+        body: |
+          ### **适用于x86 64位平台的OpenWrt固件**
+          * **固件信息：**
+          默认IP: `10.10.10.2`
+          默认用户名: `root`
+          默认密码: `空`
+          * **更新说明：**
+          自用固件，插件较少！
+          如有其他需求，建议下载全插件版本固件！
+          ${{ env.useVersionInfo }}
+        artifacts: ${{ env.FIRMWARE }}/*        
 
     - name: 清理Actions空间
       uses: Mattraks/delete-workflow-runs@main
@@ -189,4 +284,4 @@ jobs:
         #keep_latest: ${{ github.event.inputs.rele }}
         delete_tags: true
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}    
