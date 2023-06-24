@@ -120,10 +120,9 @@ jobs:
         cd openwrt
         $GITHUB_WORKSPACE/$DIY_P2_SH
         
-
-    # - name: SSH connection to Actions
-    #   uses: P3TERX/debugger-action@master
-    #   if: env.SSH_ACTIONS == 'true' || contains(github.event.action, 'ssh')        
+    - name: SSH 连接 Actions
+      uses: P3TERX/debugger-action@master
+      if: env.SSH_ACTIONS == 'true' || contains(github.event.action, 'ssh')        
 
     - name: 下载 dl 库
       id: package
@@ -174,7 +173,6 @@ jobs:
         echo -e "\n"
         echo "列出空间占用前10的目录或文件："
         sudo du -h --max-depth=1 /workdir/openwrt |sort -nr | head -10        
-
 
     - name: 上传文件
       uses: actions/upload-artifact@main
